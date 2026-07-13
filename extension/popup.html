@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      width: 420px; 
+      min-height: 500px; 
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f0f; 
+      color: #f1f1f1;
+    }
+    .header {
+      background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+      padding: 16px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 0.5px;
+    }
+    .nav {
+      display: flex;
+      background: #1a1a1a;
+      border-bottom: 2px solid #333;
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 14px;
+      background: none;
+      border: none;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .nav-btn:hover { color: #fff; }
+    .nav-btn.active {
+      color: #ff0000;
+      background: #1f1f1f;
+    }
+    .nav-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 20%; right: 20%;
+      height: 3px;
+      background: #ff0000;
+      border-radius: 2px;
+    }
+    .content {
+      padding: 16px;
+      min-height: 350px;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #333;
+      border-top-color: #ff0000;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #ff0000, #cc0000);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 16px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255,0,0,0.3);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .notes-container {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 16px;
+      line-height: 1.7;
+      font-size: 13px;
+    }
+    .notes-container h3 {
+      color: #ff4444;
+      margin: 12px 0 8px;
+      font-size: 14px;
+    }
+    .notes-container h3:first-child { margin-top: 0; }
+    .notes-container ul {
+      margin-left: 16px;
+      color: #ccc;
+    }
+    .notes-container li { margin: 4px 0; }
+    .notes-container strong { color: #fff; }
+    .timestamp {
+      color: #ff0000;
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: underline;
+      margin-right: 6px;
+    }
+    
+    .doubts-input {
+      width: 100%;
+      padding: 12px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 13px;
+      margin-bottom: 12px;
+      resize: vertical;
+      min-height: 60px;
+    }
+    .doubts-input:focus {
+      outline: none;
+      border-color: #ff0000;
+    }
+    .ask-btn {
+      width: 100%;
+      padding: 12px;
+      background: #1a1a1a;
+      border: 1px solid #ff0000;
+      border-radius: 8px;
+      color: #ff0000;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+    .ask-btn:hover { background: #ff0000; color: #fff; }
+    
+    .chat-container {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .chat-msg {
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .chat-msg.user {
+      background: #2a2a2a;
+      margin-left: 20px;
+    }
+    .chat-msg.ai {
+      background: #1a1a1a;
+      border-left: 3px solid #ff0000;
+      margin-right: 20px;
+    }
+    .chat-label {
+      font-size: 10px;
+      color: #888;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    
+    .question-card {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border-left: 3px solid #ff0000;
+    }
+    .question-text {
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .options {
+      margin-left: 8px;
+    }
+    .option {
+      padding: 6px 10px;
+      background: #252525;
+      border-radius: 6px;
+      margin: 4px 0;
+      font-size: 12px;
+      color: #ccc;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .option:hover { background: #333; }
+    .option.correct { background: #1a4d1a; color: #7fff7f; }
+    .option.wrong { background: #4d1a1a; color: #ff7f7f; }
+    
+    .error {
+      background: #4d1a1a;
+      color: #ff7f7f;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      text-align: center;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+      font-size: 13px;
+    }
+    .video-info {
+      background: #1a1a1a;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #aaa;
+    }
+    .video-info strong { color: #fff; }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .status-badge.ready {
+      background: #1a4d1a;
+      color: #7fff7f;
+    }
+    .status-badge.empty {
+      background: #4d4d1a;
+      color: #ffff7f;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">🎬 YouTube NoteTaker</div>
+  
+  <div class="nav">
+    <button class="nav-btn active" data-tab="notes">📝 Notes</button>
+    <button class="nav-btn" data-tab="doubts">❓ Doubts</button>
+    <button class="nav-btn" data-tab="questions">📋 Questions</button>
+  </div>
+  
+  <div class="content">
+    <!-- Notes Tab -->
+    <div id="notes" class="tab-content active">
+      <div class="video-info" id="videoInfo">Loading video info...</div>
+      <button class="btn-primary" id="generateNotesBtn">Generate Notes</button>
+      <div id="notesResult"></div>
+    </div>
+    
+    <!-- Doubts Tab -->
+    <div id="doubts" class="tab-content">
+      <div class="video-info" id="videoInfoDoubts">Loading video info...</div>
+      <div id="notesStatus" class="status-badge empty">No notes yet — generate notes first</div>
+      <textarea class="doubts-input" id="doubtInput" placeholder="Ask a question about the video content..."></textarea>
+      <button class="ask-btn" id="askBtn">Ask AI</button>
+      <div class="chat-container" id="chatContainer"></div>
+    </div>
+    
+    <!-- Questions Tab -->
+    <div id="questions" class="tab-content">
+      <div class="video-info" id="videoInfoQuestions">Loading video info...</div>
+      <div id="questionsStatus" class="status-badge empty">No notes yet — generate notes first</div>
+      <button class="btn-primary" id="generateQuestionsBtn">Generate Exam Questions</button>
+      <div id="questionsResult"></div>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
