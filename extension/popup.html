@@ -27,13 +27,19 @@
       --error-bg: rgba(248, 113, 113, 0.1);
     }
     
+    html {
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    
     body { 
       width: 420px; 
       min-height: 520px; 
       font-family: 'Inter', system-ui, sans-serif;
       background: var(--bg-primary); 
       color: var(--text-primary);
-      overflow-x: hidden;
+      border-radius: 16px;
+      overflow: hidden;
     }
     
     /* Header */
@@ -43,6 +49,7 @@
       text-align: center;
       position: relative;
       overflow: hidden;
+      border-radius: 16px 16px 0 0;
     }
     .header::before {
       content: '';
@@ -73,20 +80,20 @@
       display: flex;
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
-      padding: 4px;
-      gap: 4px;
+      padding: 6px;
+      gap: 6px;
     }
     .nav-btn {
       flex: 1;
-      padding: 12px 8px;
+      padding: 10px 8px;
       background: transparent;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       color: var(--text-muted);
       cursor: pointer;
       font-size: 12px;
       font-weight: 600;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.25s ease;
       position: relative;
       display: flex;
       align-items: center;
@@ -100,17 +107,16 @@
     .nav-btn.active {
       color: var(--text-primary);
       background: var(--bg-tertiary);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
     .nav-btn.active::after {
       content: '';
       position: absolute;
-      bottom: -5px;
+      bottom: 4px;
       left: 30%;
       right: 30%;
       height: 3px;
       background: var(--accent);
-      border-radius: 3px 3px 0 0;
+      border-radius: 3px;
     }
     .nav-icon {
       font-size: 14px;
@@ -147,13 +153,12 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 12px;
     }
     .video-icon {
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       background: linear-gradient(135deg, var(--accent), #e11d48);
-      border-radius: 8px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -194,17 +199,14 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      position: relative;
-      overflow: hidden;
     }
     .btn-primary {
       background: linear-gradient(135deg, var(--accent), #e11d48);
       color: white;
-      box-shadow: 0 4px 16px var(--accent-glow);
     }
     .btn-primary:hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(255, 62, 62, 0.25);
+      box-shadow: 0 4px 12px rgba(255, 62, 62, 0.2);
     }
     .btn-primary:active {
       transform: translateY(0);
@@ -213,7 +215,6 @@
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
-      box-shadow: none;
     }
     .btn-secondary {
       background: var(--bg-tertiary);
@@ -283,7 +284,6 @@
     }
     .notes-container li { 
       margin: 6px 0; 
-      position: relative;
     }
     .notes-container li::marker {
       color: var(--accent);
@@ -298,8 +298,8 @@
       cursor: pointer;
       text-decoration: none;
       background: var(--accent-glow);
-      padding: 2px 6px;
-      border-radius: 4px;
+      padding: 2px 8px;
+      border-radius: 6px;
       margin-right: 6px;
       font-weight: 600;
       transition: all 0.2s;
@@ -326,7 +326,7 @@
     }
     .transcript-input {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -351,8 +351,8 @@
     .hint-box {
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: 12px;
+      padding: 14px;
       margin-bottom: 12px;
     }
     .hint-title {
@@ -373,8 +373,8 @@
     }
     .hint-steps code {
       background: var(--bg-primary);
-      padding: 2px 6px;
-      border-radius: 4px;
+      padding: 2px 8px;
+      border-radius: 6px;
       color: var(--accent);
       font-family: 'SF Mono', monospace;
       font-size: 10px;
@@ -389,8 +389,8 @@
       gap: 10px;
     }
     .chat-msg {
-      padding: 12px 14px;
-      border-radius: 12px;
+      padding: 12px 16px;
+      border-radius: 14px;
       font-size: 12px;
       line-height: 1.6;
       max-width: 90%;
@@ -401,7 +401,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
     .chat-msg.user {
-      background: var(--accent);
+      background: linear-gradient(135deg, var(--accent), #e11d48);
       color: white;
       align-self: flex-end;
       border-bottom-right-radius: 4px;
@@ -427,7 +427,7 @@
     /* Doubts Input */
     .doubts-input {
       width: 100%;
-      padding: 12px 14px;
+      padding: 14px;
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -466,7 +466,7 @@
       color: var(--accent);
       font-size: 10px;
       font-weight: 700;
-      padding: 4px 10px;
+      padding: 4px 12px;
       border-radius: 20px;
       margin-bottom: 10px;
     }
@@ -483,10 +483,10 @@
       gap: 8px;
     }
     .option {
-      padding: 10px 14px;
+      padding: 12px 14px;
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 12px;
       color: var(--text-secondary);
       cursor: pointer;
@@ -501,10 +501,10 @@
       color: var(--text-primary);
     }
     .option-letter {
-      width: 24px;
-      height: 24px;
+      width: 28px;
+      height: 28px;
       background: var(--bg-primary);
-      border-radius: 6px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -512,6 +512,7 @@
       font-weight: 700;
       color: var(--text-muted);
       flex-shrink: 0;
+      transition: all 0.2s;
     }
     .option:hover .option-letter {
       background: var(--accent);
@@ -606,7 +607,7 @@
 </head>
 <body>
   <div class="header">
-    <div class="header-title">Learning Companion</div>
+    <div class="header-title">🎬 YouTube NoteTaker</div>
     <div class="header-subtitle">AI-Powered Study Assistant</div>
   </div>
   
