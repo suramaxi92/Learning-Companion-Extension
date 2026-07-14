@@ -18,7 +18,9 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
   const tab = tabs[0];
   if (!tab.url || !tab.url.includes('youtube.com/watch')) {
-    showError('Please open a YouTube video first.');
+    document.querySelectorAll('.video-title').forEach(el => {
+      el.textContent = 'Open a YouTube video';
+    });
     return;
   }
   
@@ -32,31 +34,25 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     if (results && results[0] && results[0].result) {
       const info = results[0].result;
       currentVideoTitle = info.title;
-      updateVideoInfo(info.title);
+      document.querySelectorAll('.video-title').forEach(el => {
+        el.textContent = info.title.length > 45 ? info.title.substring(0, 45) + '...' : info.title;
+      });
     }
   });
 });
 
-function updateVideoInfo(title) {
-  const truncated = title.length > 50 ? title.substring(0, 50) + '...' : title;
-  document.querySelectorAll('.video-info').forEach(el => {
-    el.innerHTML = `<strong>Video:</strong> ${truncated}`;
-  });
-}
-
-function showError(msg) {
-  document.querySelectorAll('.tab-content').forEach(el => {
-    el.innerHTML = `<div class="error">${msg}</div>`;
-  });
-}
-
-function showLoading(containerId, text = 'Processing...') {
+function showLoading(containerId, text = 'Processing...', subtext = '') {
   document.getElementById(containerId).innerHTML = `
     <div class="loading">
       <div class="spinner"></div>
-      <div>${text}</div>
+      <div class="loading-text">${text}</div>
+      ${subtext ? `<div class="loading-subtext">${subtext}</div>` : ''}
     </div>
   `;
+}
+
+function showError(containerId, msg) {
+  document.getElementById(containerId).innerHTML = `<div class="error-box">${msg}</div>`;
 }
 
 function updateStatus() {
@@ -64,9 +60,9 @@ function updateStatus() {
   const questionsStatus = document.getElementById('questionsStatus');
   
   if (currentNotes) {
-    notesStatus.textContent = '✓ Notes ready — ask away!';
+    notesStatus.innerHTML = '<span class="status-dot"></span> Notes ready';
     notesStatus.className = 'status-badge ready';
-    questionsStatus.textContent = '✓ Notes ready — generate questions!';
+    questionsStatus.innerHTML = '<span class="status-dot"></span> Ready to generate';
     questionsStatus.className = 'status-badge ready';
   }
 }
@@ -82,7 +78,7 @@ document.getElementById('generateNotesBtn').addEventListener('click', async () =
   
   const btn = document.getElementById('generateNotesBtn');
   btn.disabled = true;
-  showLoading('notesResult', 'Extracting transcript & generating notes...');
+  showLoading('notesResult', 'Extracting transcript...', 'This may take a few seconds');
   
   try {
     const transcriptRes = await fetch(`${BACKEND_URL}/api/transcript/${currentVideoId}`);
@@ -94,10 +90,10 @@ document.getElementById('generateNotesBtn').addEventListener('click', async () =
       return;
     }
     
-    showManualTranscriptFallback(transcriptData.error || 'Could not extract captions automatically.');
+    showManualTranscriptFallback(transcriptData.error || 'Auto-extraction unavailable');
     
   } catch (err) {
-    showManualTranscriptFallback('Could not connect to backend. Make sure Flask is running on port 5000.');
+    showManualTranscriptFallback('Cannot connect to backend');
   } finally {
     btn.disabled = false;
   }
@@ -105,39 +101,21 @@ document.getElementById('generateNotesBtn').addEventListener('click', async () =
 
 function showManualTranscriptFallback(errorMsg) {
   document.getElementById('notesResult').innerHTML = `
-    <div style="margin-bottom: 16px;">
-      <div class="error" style="margin-bottom: 12px;">⚠️ ${errorMsg}</div>
-      <div style="font-size: 12px; color: #888; margin-bottom: 12px; line-height: 1.6;">
-        <strong>You can paste the transcript manually:</strong><br>
-        1. Click the <code style="background:#252525;padding:2px 6px;border-radius:4px;color:#ff8888;">⋯</code> (More) button below the YouTube video<br>
-        2. Click <code style="background:#252525;padding:2px 6px;border-radius:4px;color:#ff8888;">Show transcript</code><br>
-        3. Copy the transcript and paste it below
+    <div class="hint-box">
+      <div class="hint-title">⚠️ ${errorMsg}</div>
+      <div class="hint-steps">
+        <strong>Get transcript manually:</strong><br>
+        1. Click <code>⋯</code> below the video → <code>Show transcript</code><br>
+        2. Copy and paste below
       </div>
-      <textarea id="manualTranscript" style="
-        width: 100%;
-        padding: 12px;
-        background: #1a1a1a;
-        border: 1px solid #333;
-        border-radius: 8px;
-        color: #fff;
-        font-size: 12px;
-        min-height: 120px;
-        resize: vertical;
-        font-family: 'Segoe UI', system-ui, sans-serif;
-      " placeholder="Paste YouTube transcript here..."></textarea>
-      <button id="manualGenerateBtn" style="
-        width: 100%;
-        padding: 12px;
-        background: linear-gradient(135deg, #ff0000, #cc0000);
-        border: none;
-        border-radius: 8px;
-        color: white;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 10px;
-      ">Generate Notes from Pasted Transcript</button>
     </div>
+    <div class="input-group">
+      <div class="input-label">📋 Paste Transcript</div>
+      <textarea class="transcript-input" id="manualTranscript" placeholder="Paste transcript here with timestamps..."></textarea>
+    </div>
+    <button class="btn btn-primary" id="manualGenerateBtn">
+      <span>✨</span> Generate from Transcript
+    </button>
   `;
   
   document.getElementById('manualGenerateBtn').addEventListener('click', () => {
@@ -156,7 +134,7 @@ async function generateNotesFromTranscript() {
   
   const btn = document.getElementById('generateNotesBtn');
   btn.disabled = true;
-  showLoading('notesResult', 'Generating notes with AI...');
+  showLoading('notesResult', 'Generating notes...', 'AI is analyzing the content');
   
   try {
     const notesRes = await fetch(`${BACKEND_URL}/api/generate-notes`, {
@@ -175,7 +153,7 @@ async function generateNotesFromTranscript() {
     renderNotes(notesData.notes);
     updateStatus();
   } catch (err) {
-    document.getElementById('notesResult').innerHTML = `<div class="error">Error: ${err.message}</div>`;
+    showError('notesResult', err.message);
   } finally {
     btn.disabled = false;
   }
@@ -192,7 +170,7 @@ function renderNotes(notes) {
     if (line.startsWith('# ')) {
       html += `<h3>${line.replace('# ', '')}</h3>`;
     } else if (line.startsWith('## ')) {
-      html += `<h4 style="color:#ff6666;margin:10px 0 6px;font-size:13px;">${line.replace('## ', '')}</h4>`;
+      html += `<h4>${line.replace('## ', '')}</h4>`;
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       const text = line.substring(2);
       const processed = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -225,22 +203,20 @@ document.getElementById('askBtn').addEventListener('click', async () => {
     return;
   }
   
-  // Don't answer generic greetings as if they're about the video
-  const greetings = ['hi', 'hello', 'hey', 'hii', 'heyy'];
+  const greetings = ['hi', 'hello', 'hey', 'hii', 'heyy', 'yo'];
   if (greetings.includes(question.toLowerCase())) {
-    addChatMessage('ai', 'Hello! 👋 I can answer questions about the video content based on the notes you generated. What would you like to know?');
+    addChatMessage('ai', '👋 Hey there! I can answer questions about the video based on your generated notes. What would you like to know?');
     input.value = '';
     return;
   }
   
   input.value = '';
-  const container = document.getElementById('chatContainer');
-  
   addChatMessage('user', question);
   
+  const container = document.getElementById('chatContainer');
   const aiMsg = document.createElement('div');
   aiMsg.className = 'chat-msg ai';
-  aiMsg.innerHTML = `<div class="chat-label">AI</div><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>`;
+  aiMsg.innerHTML = `<div class="chat-label">AI</div><div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px;"></div>Thinking...`;
   container.appendChild(aiMsg);
   container.scrollTop = container.scrollHeight;
   
@@ -260,7 +236,7 @@ document.getElementById('askBtn').addEventListener('click', async () => {
     
     aiMsg.innerHTML = `<div class="chat-label">AI</div>${escapeHtml(data.answer).replace(/\n/g, '<br>')}`;
   } catch (err) {
-    aiMsg.innerHTML = `<div class="chat-label">AI</div><span style="color:#ff7f7f;">Error: ${err.message}</span>`;
+    aiMsg.innerHTML = `<div class="chat-label">AI</div><span style="color:var(--error);">${escapeHtml(err.message)}</span>`;
   }
   
   container.scrollTop = container.scrollHeight;
@@ -270,7 +246,7 @@ function addChatMessage(role, text) {
   const container = document.getElementById('chatContainer');
   const msg = document.createElement('div');
   msg.className = `chat-msg ${role}`;
-  const label = role === 'user' ? 'YOU' : 'AI';
+  const label = role === 'user' ? 'You' : 'AI';
   msg.innerHTML = `<div class="chat-label">${label}</div>${escapeHtml(text)}`;
   container.appendChild(msg);
   container.scrollTop = container.scrollHeight;
@@ -285,7 +261,7 @@ document.getElementById('generateQuestionsBtn').addEventListener('click', async 
   
   const btn = document.getElementById('generateQuestionsBtn');
   btn.disabled = true;
-  showLoading('questionsResult', 'Generating exam-style questions...');
+  showLoading('questionsResult', 'Generating questions...', 'Crafting exam-style MCQs');
   
   try {
     const res = await fetch(`${BACKEND_URL}/api/generate-questions`, {
@@ -302,7 +278,7 @@ document.getElementById('generateQuestionsBtn').addEventListener('click', async 
     
     renderQuestions(data.questions);
   } catch (err) {
-    document.getElementById('questionsResult').innerHTML = `<div class="error">Error: ${err.message}</div>`;
+    showError('questionsResult', err.message);
   } finally {
     btn.disabled = false;
   }
@@ -312,12 +288,14 @@ function renderQuestions(questions) {
   let html = '';
   questions.forEach((q, idx) => {
     html += `
-      <div class="question-card" data-idx="${idx}">
-        <div class="question-text">${idx + 1}. ${escapeHtml(q.question)}</div>
+      <div class="question-card">
+        <div class="question-number">Question ${idx + 1}</div>
+        <div class="question-text">${escapeHtml(q.question)}</div>
         <div class="options">
           ${q.options.map((opt, oIdx) => `
             <div class="option" data-correct="${oIdx === q.correct_index}" data-answered="false">
-              ${String.fromCharCode(65 + oIdx)}. ${escapeHtml(opt)}
+              <span class="option-letter">${String.fromCharCode(65 + oIdx)}</span>
+              <span>${escapeHtml(opt)}</span>
             </div>
           `).join('')}
         </div>

@@ -3,283 +3,689 @@
 <head>
   <meta charset="UTF-8">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a2e;
+      --bg-hover: #252540;
+      --accent: #ff3e3e;
+      --accent-hover: #ff5e5e;
+      --accent-glow: rgba(255, 62, 62, 0.15);
+      --text-primary: #f0f0f5;
+      --text-secondary: #a0a0b0;
+      --text-muted: #6a6a80;
+      --border: #2a2a40;
+      --success: #4ade80;
+      --success-bg: rgba(74, 222, 128, 0.1);
+      --warning: #fbbf24;
+      --warning-bg: rgba(251, 191, 36, 0.1);
+      --error: #f87171;
+      --error-bg: rgba(248, 113, 113, 0.1);
+    }
+    
     body { 
       width: 420px; 
-      min-height: 500px; 
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f0f0f; 
-      color: #f1f1f1;
+      min-height: 520px; 
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-primary); 
+      color: var(--text-primary);
+      overflow-x: hidden;
     }
+    
+    /* Header */
     .header {
-      background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
-      padding: 16px;
+      background: linear-gradient(135deg, #ff3e3e 0%, #e11d48 100%);
+      padding: 20px 16px;
       text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .header-title {
       font-weight: 700;
       font-size: 18px;
-      letter-spacing: 0.5px;
+      letter-spacing: -0.3px;
+      position: relative;
+      z-index: 1;
     }
+    .header-subtitle {
+      font-size: 11px;
+      opacity: 0.85;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+    
+    /* Navigation */
     .nav {
       display: flex;
-      background: #1a1a1a;
-      border-bottom: 2px solid #333;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 4px;
+      gap: 4px;
     }
     .nav-btn {
       flex: 1;
-      padding: 14px;
-      background: none;
+      padding: 12px 8px;
+      background: transparent;
       border: none;
-      color: #aaa;
+      border-radius: 8px;
+      color: var(--text-muted);
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
-      transition: all 0.2s;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
-    .nav-btn:hover { color: #fff; }
+    .nav-btn:hover { 
+      color: var(--text-secondary); 
+      background: var(--bg-tertiary);
+    }
     .nav-btn.active {
-      color: #ff0000;
-      background: #1f1f1f;
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
     .nav-btn.active::after {
       content: '';
       position: absolute;
-      bottom: 0; left: 20%; right: 20%;
+      bottom: -5px;
+      left: 30%;
+      right: 30%;
       height: 3px;
-      background: #ff0000;
-      border-radius: 2px;
+      background: var(--accent);
+      border-radius: 3px 3px 0 0;
     }
+    .nav-icon {
+      font-size: 14px;
+    }
+    
+    /* Content */
     .content {
       padding: 16px;
-      min-height: 350px;
+      min-height: 380px;
     }
-    .tab-content { display: none; }
+    .tab-content { display: none; animation: fadeIn 0.3s ease; }
     .tab-content.active { display: block; }
     
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: #888;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-    .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid #333;
-      border-top-color: #ff0000;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 16px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
     
-    .btn-primary {
+    /* Cards */
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+    }
+    .card:hover {
+      border-color: var(--bg-hover);
+    }
+    
+    /* Video Info */
+    .video-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .video-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), #e11d48);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .video-details {
+      flex: 1;
+      min-width: 0;
+    }
+    .video-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    .video-title {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    
+    /* Buttons */
+    .btn {
       width: 100%;
       padding: 14px;
-      background: linear-gradient(135deg, #ff0000, #cc0000);
       border: none;
-      border-radius: 8px;
-      color: white;
-      font-size: 14px;
+      border-radius: 10px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      margin-bottom: 16px;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #e11d48);
+      color: white;
+      box-shadow: 0 4px 16px var(--accent-glow);
     }
     .btn-primary:hover {
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(255,0,0,0.3);
+      box-shadow: 0 6px 20px rgba(255, 62, 62, 0.25);
+    }
+    .btn-primary:active {
+      transform: translateY(0);
     }
     .btn-primary:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
+      box-shadow: none;
+    }
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--accent);
     }
     
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .spinner {
+      width: 36px; 
+      height: 36px;
+      border: 3px solid var(--bg-tertiary);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text {
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .loading-subtext {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    
+    /* Notes */
     .notes-container {
-      background: #1a1a1a;
-      border-radius: 8px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
       padding: 16px;
-      line-height: 1.7;
+      line-height: 1.8;
       font-size: 13px;
     }
     .notes-container h3 {
-      color: #ff4444;
-      margin: 12px 0 8px;
+      color: var(--accent);
+      margin: 16px 0 10px;
       font-size: 14px;
+      font-weight: 700;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
     }
     .notes-container h3:first-child { margin-top: 0; }
-    .notes-container ul {
-      margin-left: 16px;
-      color: #ccc;
+    .notes-container h4 {
+      color: #ff6b6b;
+      margin: 12px 0 8px;
+      font-size: 12px;
+      font-weight: 600;
     }
-    .notes-container li { margin: 4px 0; }
-    .notes-container strong { color: #fff; }
+    .notes-container ul {
+      margin-left: 18px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .notes-container li { 
+      margin: 6px 0; 
+      position: relative;
+    }
+    .notes-container li::marker {
+      color: var(--accent);
+    }
+    .notes-container strong { 
+      color: var(--text-primary); 
+      font-weight: 600;
+    }
     .timestamp {
-      color: #ff0000;
+      color: var(--accent);
       font-size: 11px;
       cursor: pointer;
-      text-decoration: underline;
+      text-decoration: none;
+      background: var(--accent-glow);
+      padding: 2px 6px;
+      border-radius: 4px;
       margin-right: 6px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .timestamp:hover {
+      background: var(--accent);
+      color: white;
     }
     
-    .doubts-input {
+    /* Transcript Input */
+    .input-group {
+      margin-bottom: 12px;
+    }
+    .input-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .transcript-input {
       width: 100%;
       padding: 12px;
-      background: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 13px;
-      margin-bottom: 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 12px;
+      min-height: 100px;
       resize: vertical;
-      min-height: 60px;
+      font-family: 'Inter', system-ui, sans-serif;
+      line-height: 1.6;
+      transition: all 0.2s;
+    }
+    .transcript-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .transcript-input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    /* Hint Box */
+    .hint-box {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .hint-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hint-steps {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+    .hint-steps code {
+      background: var(--bg-primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent);
+      font-family: 'SF Mono', monospace;
+      font-size: 10px;
+    }
+    
+    /* Chat */
+    .chat-container {
+      max-height: 320px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .chat-msg {
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      max-width: 90%;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .chat-msg.user {
+      background: var(--accent);
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .chat-msg.ai {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .chat-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+      opacity: 0.7;
+    }
+    .chat-msg.user .chat-label { color: rgba(255,255,255,0.8); }
+    .chat-msg.ai .chat-label { color: var(--accent); }
+    
+    /* Doubts Input */
+    .doubts-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 13px;
+      margin-bottom: 10px;
+      resize: vertical;
+      min-height: 50px;
+      font-family: 'Inter', system-ui, sans-serif;
+      transition: all 0.2s;
     }
     .doubts-input:focus {
       outline: none;
-      border-color: #ff0000;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
     }
-    .ask-btn {
-      width: 100%;
-      padding: 12px;
-      background: #1a1a1a;
-      border: 1px solid #ff0000;
-      border-radius: 8px;
-      color: #ff0000;
-      font-weight: 600;
-      cursor: pointer;
-      margin-bottom: 16px;
-    }
-    .ask-btn:hover { background: #ff0000; color: #fff; }
-    
-    .chat-container {
-      max-height: 300px;
-      overflow-y: auto;
-    }
-    .chat-msg {
-      padding: 10px 12px;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .chat-msg.user {
-      background: #2a2a2a;
-      margin-left: 20px;
-    }
-    .chat-msg.ai {
-      background: #1a1a1a;
-      border-left: 3px solid #ff0000;
-      margin-right: 20px;
-    }
-    .chat-label {
-      font-size: 10px;
-      color: #888;
-      margin-bottom: 4px;
-      font-weight: 600;
+    .doubts-input::placeholder {
+      color: var(--text-muted);
     }
     
+    /* Questions */
     .question-card {
-      background: #1a1a1a;
-      border-radius: 8px;
-      padding: 14px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+    .question-card:hover {
+      border-color: var(--bg-hover);
+    }
+    .question-number {
+      display: inline-block;
+      background: var(--accent-glow);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
       margin-bottom: 10px;
-      border-left: 3px solid #ff0000;
     }
     .question-text {
       font-weight: 600;
-      color: #fff;
-      margin-bottom: 8px;
+      color: var(--text-primary);
+      margin-bottom: 12px;
       font-size: 13px;
+      line-height: 1.5;
     }
     .options {
-      margin-left: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     .option {
-      padding: 6px 10px;
-      background: #252525;
-      border-radius: 6px;
-      margin: 4px 0;
-      font-size: 12px;
-      color: #ccc;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .option:hover { background: #333; }
-    .option.correct { background: #1a4d1a; color: #7fff7f; }
-    .option.wrong { background: #4d1a1a; color: #ff7f7f; }
-    
-    .error {
-      background: #4d1a1a;
-      color: #ff7f7f;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      text-align: center;
-    }
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: #666;
-      font-size: 13px;
-    }
-    .video-info {
-      background: #1a1a1a;
       padding: 10px 14px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
       border-radius: 8px;
-      margin-bottom: 16px;
       font-size: 12px;
-      color: #aaa;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .video-info strong { color: #fff; }
-    
-    .status-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 12px;
+    .option:hover { 
+      background: var(--bg-hover); 
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .option-letter {
+      width: 24px;
+      height: 24px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .option:hover .option-letter {
+      background: var(--accent);
+      color: white;
+    }
+    .option.correct { 
+      background: var(--success-bg); 
+      border-color: var(--success);
+      color: var(--success);
+    }
+    .option.correct .option-letter {
+      background: var(--success);
+      color: var(--bg-primary);
+    }
+    .option.wrong { 
+      background: var(--error-bg); 
+      border-color: var(--error);
+      color: var(--error);
+    }
+    .option.wrong .option-letter {
+      background: var(--error);
+      color: white;
+    }
+    
+    /* Status Badges */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 12px;
     }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
     .status-badge.ready {
-      background: #1a4d1a;
-      color: #7fff7f;
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid rgba(74, 222, 128, 0.2);
     }
     .status-badge.empty {
-      background: #4d4d1a;
-      color: #ffff7f;
+      background: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid rgba(251, 191, 36, 0.2);
     }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    
+    /* Error */
+    .error-box {
+      background: var(--error-bg);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      color: var(--error);
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      text-align: center;
+      font-weight: 500;
+    }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .empty-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { 
+      background: var(--bg-hover); 
+      border-radius: 3px; 
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
   </style>
 </head>
 <body>
-  <div class="header">🎬 YouTube NoteTaker</div>
+  <div class="header">
+    <div class="header-title">Learning Companion</div>
+    <div class="header-subtitle">AI-Powered Study Assistant</div>
+  </div>
   
   <div class="nav">
-    <button class="nav-btn active" data-tab="notes">📝 Notes</button>
-    <button class="nav-btn" data-tab="doubts">❓ Doubts</button>
-    <button class="nav-btn" data-tab="questions">📋 Questions</button>
+    <button class="nav-btn active" data-tab="notes">
+      <span class="nav-icon">📝</span> Notes
+    </button>
+    <button class="nav-btn" data-tab="doubts">
+      <span class="nav-icon">❓</span> Doubts
+    </button>
+    <button class="nav-btn" data-tab="questions">
+      <span class="nav-icon">📋</span> Questions
+    </button>
   </div>
   
   <div class="content">
     <!-- Notes Tab -->
     <div id="notes" class="tab-content active">
-      <div class="video-info" id="videoInfo">Loading video info...</div>
-      <button class="btn-primary" id="generateNotesBtn">Generate Notes</button>
+      <div class="video-info card">
+        <div class="video-icon">▶</div>
+        <div class="video-details">
+          <div class="video-label">Current Video</div>
+          <div class="video-title" id="videoInfo">Loading...</div>
+        </div>
+      </div>
+      
       <div id="notesResult"></div>
+      
+      <button class="btn btn-primary" id="generateNotesBtn">
+        <span>✨</span> Generate Notes
+      </button>
     </div>
     
     <!-- Doubts Tab -->
     <div id="doubts" class="tab-content">
-      <div class="video-info" id="videoInfoDoubts">Loading video info...</div>
-      <div id="notesStatus" class="status-badge empty">No notes yet — generate notes first</div>
-      <textarea class="doubts-input" id="doubtInput" placeholder="Ask a question about the video content..."></textarea>
-      <button class="ask-btn" id="askBtn">Ask AI</button>
+      <div class="video-info card">
+        <div class="video-icon">💬</div>
+        <div class="video-details">
+          <div class="video-label">Ask AI</div>
+          <div class="video-title" id="videoInfoDoubts">Loading...</div>
+        </div>
+      </div>
+      
+      <div class="status-row">
+        <div id="notesStatus" class="status-badge empty">
+          <span class="status-dot"></span>
+          No notes yet
+        </div>
+      </div>
+      
+      <textarea class="doubts-input" id="doubtInput" placeholder="Ask anything about the video content..."></textarea>
+      <button class="btn btn-primary" id="askBtn">
+        <span>🚀</span> Ask AI
+      </button>
+      
       <div class="chat-container" id="chatContainer"></div>
     </div>
     
     <!-- Questions Tab -->
     <div id="questions" class="tab-content">
-      <div class="video-info" id="videoInfoQuestions">Loading video info...</div>
-      <div id="questionsStatus" class="status-badge empty">No notes yet — generate notes first</div>
-      <button class="btn-primary" id="generateQuestionsBtn">Generate Exam Questions</button>
+      <div class="video-info card">
+        <div class="video-icon">🎯</div>
+        <div class="video-details">
+          <div class="video-label">Practice</div>
+          <div class="video-title" id="videoInfoQuestions">Loading...</div>
+        </div>
+      </div>
+      
+      <div class="status-row">
+        <div id="questionsStatus" class="status-badge empty">
+          <span class="status-dot"></span>
+          No notes yet
+        </div>
+      </div>
+      
+      <button class="btn btn-primary" id="generateQuestionsBtn">
+        <span>🎯</span> Generate Exam Questions
+      </button>
+      
       <div id="questionsResult"></div>
     </div>
   </div>
