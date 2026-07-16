@@ -42,7 +42,6 @@
       overflow: hidden;
     }
     
-    /* Header */
     .header {
       background: linear-gradient(135deg, #ff3e3e 0%, #e11d48 100%);
       padding: 20px 16px;
@@ -75,7 +74,6 @@
       font-weight: 500;
     }
     
-    /* Navigation */
     .nav {
       display: flex;
       background: var(--bg-secondary);
@@ -85,20 +83,20 @@
     }
     .nav-btn {
       flex: 1;
-      padding: 10px 8px;
+      padding: 10px 4px;
       background: transparent;
       border: none;
       border-radius: 10px;
       color: var(--text-muted);
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       transition: all 0.25s ease;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
     }
     .nav-btn:hover { 
       color: var(--text-secondary); 
@@ -112,17 +110,16 @@
       content: '';
       position: absolute;
       bottom: 4px;
-      left: 30%;
-      right: 30%;
+      left: 25%;
+      right: 25%;
       height: 3px;
       background: var(--accent);
       border-radius: 3px;
     }
     .nav-icon {
-      font-size: 14px;
+      font-size: 13px;
     }
     
-    /* Content */
     .content {
       padding: 16px;
       min-height: 380px;
@@ -135,7 +132,6 @@
       to { opacity: 1; transform: translateY(0); }
     }
     
-    /* Cards */
     .card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -148,7 +144,6 @@
       border-color: var(--bg-hover);
     }
     
-    /* Video Info */
     .video-info {
       display: flex;
       align-items: center;
@@ -185,7 +180,6 @@
       margin-top: 2px;
     }
     
-    /* Buttons */
     .btn {
       width: 100%;
       padding: 14px;
@@ -227,7 +221,6 @@
       border-color: var(--accent);
     }
     
-    /* Loading */
     .loading {
       text-align: center;
       padding: 40px 20px;
@@ -253,7 +246,6 @@
       margin-top: 6px;
     }
     
-    /* Notes */
     .notes-container {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -261,6 +253,7 @@
       padding: 16px;
       line-height: 1.8;
       font-size: 13px;
+      margin-bottom: 12px;
     }
     .notes-container h3 {
       color: var(--accent);
@@ -309,7 +302,6 @@
       color: white;
     }
     
-    /* Transcript Input */
     .input-group {
       margin-bottom: 12px;
     }
@@ -347,7 +339,6 @@
       color: var(--text-muted);
     }
     
-    /* Hint Box */
     .hint-box {
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
@@ -380,7 +371,6 @@
       font-size: 10px;
     }
     
-    /* Chat */
     .chat-container {
       max-height: 320px;
       overflow-y: auto;
@@ -424,7 +414,6 @@
     .chat-msg.user .chat-label { color: rgba(255,255,255,0.8); }
     .chat-msg.ai .chat-label { color: var(--accent); }
     
-    /* Doubts Input */
     .doubts-input {
       width: 100%;
       padding: 14px;
@@ -448,7 +437,6 @@
       color: var(--text-muted);
     }
     
-    /* Questions */
     .question-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -537,7 +525,6 @@
       color: white;
     }
     
-    /* Status Badges */
     .status-row {
       display: flex;
       align-items: center;
@@ -570,7 +557,6 @@
       background: currentColor;
     }
     
-    /* Error */
     .error-box {
       background: var(--error-bg);
       border: 1px solid rgba(248, 113, 113, 0.2);
@@ -582,7 +568,6 @@
       font-weight: 500;
     }
     
-    /* Empty State */
     .empty-state {
       text-align: center;
       padding: 50px 20px;
@@ -595,7 +580,90 @@
       opacity: 0.5;
     }
     
-    /* Scrollbar */
+    /* Learn Next Tab Styles */
+    .recommendation-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .recommendation-card:hover {
+      border-color: var(--accent);
+      transform: translateX(4px);
+    }
+    .rec-number {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .rec-topic {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 13px;
+      margin-bottom: 6px;
+      padding-right: 30px;
+    }
+    .rec-desc {
+      color: var(--text-secondary);
+      font-size: 11px;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .rec-difficulty {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .rec-difficulty.beginner {
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--success);
+    }
+    .rec-difficulty.intermediate {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--warning);
+    }
+    .rec-difficulty.advanced {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--error);
+    }
+    .rec-search {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .rec-search:hover {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { 
@@ -619,7 +687,10 @@
       <span class="nav-icon">❓</span> Doubts
     </button>
     <button class="nav-btn" data-tab="questions">
-      <span class="nav-icon">📋</span> Questions
+      <span class="nav-icon">📋</span> Qs
+    </button>
+    <button class="nav-btn" data-tab="learn">
+      <span class="nav-icon">📚</span> Learn
     </button>
   </div>
   
@@ -636,7 +707,11 @@
       
       <div id="notesResult"></div>
       
-      <button class="btn btn-primary" id="generateNotesBtn">
+      <button class="btn btn-secondary" id="downloadNotesBtn" style="display: none; margin-top: 12px;">
+        <span>📥</span> Download as PDF
+      </button>
+      
+      <button class="btn btn-primary" id="generateNotesBtn" style="margin-top: 12px;">
         <span>✨</span> Generate Notes
       </button>
     </div>
@@ -688,6 +763,30 @@
       </button>
       
       <div id="questionsResult"></div>
+    </div>
+    
+    <!-- Learn Next Tab -->
+    <div id="learn" class="tab-content">
+      <div class="video-info card">
+        <div class="video-icon">📚</div>
+        <div class="video-details">
+          <div class="video-label">Continue Learning</div>
+          <div class="video-title" id="videoInfoLearn">Based on your notes</div>
+        </div>
+      </div>
+      
+      <div class="status-row">
+        <div id="learnStatus" class="status-badge empty">
+          <span class="status-dot"></span>
+          Generate notes first
+        </div>
+      </div>
+      
+      <button class="btn btn-primary" id="generateLearnBtn">
+        <span>🎯</span> Get Recommendations
+      </button>
+      
+      <div id="learnResult"></div>
     </div>
   </div>
   

@@ -69,6 +69,8 @@ function updateStatus() {
 
 // ========== NOTES ==========
 document.getElementById('generateNotesBtn').addEventListener('click', async () => {
+  document.getElementById('downloadNotesBtn').style.display = 'none';
+  
   if (currentTranscript) {
     generateNotesFromTranscript();
     return;
@@ -100,6 +102,8 @@ document.getElementById('generateNotesBtn').addEventListener('click', async () =
 });
 
 function showManualTranscriptFallback(errorMsg) {
+  document.getElementById('downloadNotesBtn').style.display = 'none';
+  
   document.getElementById('notesResult').innerHTML = `
     <div class="hint-box">
       <div class="hint-title">⚠️ ${errorMsg}</div>
@@ -134,6 +138,7 @@ async function generateNotesFromTranscript() {
   
   const btn = document.getElementById('generateNotesBtn');
   btn.disabled = true;
+  document.getElementById('downloadNotesBtn').style.display = 'none';
   showLoading('notesResult', 'Generating notes...', 'AI is analyzing the content');
   
   try {
@@ -189,7 +194,50 @@ function renderNotes(notes) {
   
   html += '</div>';
   document.getElementById('notesResult').innerHTML = html;
+  document.getElementById('downloadNotesBtn').style.display = 'flex';
 }
+
+// ========== DOWNLOAD PDF ==========
+document.getElementById('downloadNotesBtn').addEventListener('click', async () => {
+  if (!currentNotes) return;
+  
+  const btn = document.getElementById('downloadNotesBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> Generating PDF...';
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/download-notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        notes: currentNotes,
+        video_title: currentVideoTitle
+      })
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || 'Failed to generate PDF');
+    }
+    
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeTitle = currentVideoTitle.replace(/[^a-z0-9]/gi, '_').substring(0, 30);
+    a.download = `notes-${safeTitle}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+  } catch (err) {
+    alert('Failed to download PDF: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>📥</span> Download as PDF';
+  }
+});
 
 // ========== DOUBTS ==========
 document.getElementById('askBtn').addEventListener('click', async () => {
@@ -334,3 +382,76 @@ function getVideoInfo() {
     title: titleEl ? titleEl.textContent.trim() : 'Unknown Video'
   };
 }
+
+// ========== LEARN NEXT ==========
+
+document.getElementById('generateLearnBtn').addEventListener('click', async () => {
+  if (!currentNotes) {
+    alert('Please generate notes first!');
+    return;
+  }
+  
+  const btn = document.getElementById('generateLearnBtn');
+  btn.disabled = true;
+  showLoading('learnResult', 'Finding what to learn next...', 'AI is analyzing your notes');
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/learn-next`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        notes: currentNotes,
+        video_title: currentVideoTitle
+      })
+    });
+    
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    
+    renderRecommendations(data.recommendations);
+    
+    // Update status
+    const learnStatus = document.getElementById('learnStatus');
+    learnStatus.innerHTML = '<span class="status-dot"></span> Recommendations ready';
+    learnStatus.className = 'status-badge ready';
+    
+  } catch (err) {
+    document.getElementById('learnResult').innerHTML = `<div class="error-box">Error: ${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function renderRecommendations(recommendations) {
+  let html = '';
+  
+  recommendations.forEach((rec, idx) => {
+    const searchQuery = encodeURIComponent(`${rec.topic} tutorial`);
+    const youtubeUrl = `https://www.youtube.com/results?search_query=${searchQuery}`;
+    
+    html += `
+      <div class="recommendation-card">
+        <div class="rec-number">${idx + 1}</div>
+        <div class="rec-topic">${rec.emoji} ${escapeHtml(rec.topic)}</div>
+        <div class="rec-desc">${escapeHtml(rec.description)}</div>
+        <span class="rec-difficulty ${rec.difficulty.toLowerCase()}">${rec.difficulty}</span>
+        <a class="rec-search" href="${youtubeUrl}" target="_blank">
+          <span>🔍</span> Search on YouTube
+        </a>
+      </div>
+    `;
+  });
+  
+  document.getElementById('learnResult').innerHTML = html;
+}
+
+// Update learn status when notes are generated
+const originalUpdateStatus = updateStatus;
+updateStatus = function() {
+  originalUpdateStatus();
+  if (currentNotes) {
+    const learnStatus = document.getElementById('learnStatus');
+    learnStatus.innerHTML = '<span class="status-dot"></span> Ready for recommendations';
+    learnStatus.className = 'status-badge ready';
+  }
+};
