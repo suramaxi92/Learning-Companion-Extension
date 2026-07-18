@@ -12,7 +12,7 @@ app = Flask(__name__)
 CORS(app, origins=["chrome-extension://*"])
 
 # Hardcoded API key - REPLACE WITH YOUR ACTUAL GROQ KEY
-GROQ_API_KEY = "REPLACE_WITH_YOUR_GROQ_API_KEY"
+GROQ_API_KEY = "ENTER_YOUR_GROQ_KEY"
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 DEFAULT_MODEL = "llama-3.1-8b-instant"
