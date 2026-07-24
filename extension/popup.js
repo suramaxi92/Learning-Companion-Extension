@@ -5,7 +5,142 @@ let currentVideoTitle = '';
 let currentTranscript = '';
 let currentNotes = '';
 
-// Tab switching
+// Storage keys
+const STORAGE_KEYS = {
+  videoId: 'notetaker_videoId',
+  videoTitle: 'notetaker_videoTitle',
+  transcript: 'notetaker_transcript',
+  notes: 'notetaker_notes',
+  chatHistory: 'notetaker_chatHistory',
+  questions: 'notetaker_questions',
+  recommendations: 'notetaker_recommendations'
+};
+
+// ========== STORAGE HELPERS ==========
+
+async function saveToStorage(key, value) {
+  await chrome.storage.local.set({ [key]: value });
+}
+
+async function getFromStorage(key) {
+  const result = await chrome.storage.local.get(key);
+  return result[key];
+}
+
+async function clearVideoData() {
+  await chrome.storage.local.remove([
+    STORAGE_KEYS.videoId,
+    STORAGE_KEYS.videoTitle,
+    STORAGE_KEYS.transcript,
+    STORAGE_KEYS.notes,
+    STORAGE_KEYS.chatHistory,
+    STORAGE_KEYS.questions,
+    STORAGE_KEYS.recommendations
+  ]);
+}
+
+// ========== INIT: RESTORE DATA ON OPEN ==========
+
+async function initPopup() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  if (!tab.url || !tab.url.includes('youtube.com/watch')) {
+    document.querySelectorAll('.video-title').forEach(el => {
+      el.textContent = 'Open a YouTube video';
+    });
+    return;
+  }
+  
+  const url = new URL(tab.url);
+  const newVideoId = url.searchParams.get('v');
+  
+  // Check if this is a different video from what we stored
+  const storedVideoId = await getFromStorage(STORAGE_KEYS.videoId);
+  
+  if (storedVideoId && storedVideoId !== newVideoId) {
+    // New video - clear old data
+    await clearVideoData();
+  }
+  
+  // Get video title
+  chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: getVideoInfo
+  }, async (results) => {
+    let title = 'Unknown Video';
+    if (results && results[0] && results[0].result) {
+      title = results[0].result.title;
+    }
+    
+    currentVideoId = newVideoId;
+    currentVideoTitle = title;
+    
+    // Save current video info
+    await saveToStorage(STORAGE_KEYS.videoId, currentVideoId);
+    await saveToStorage(STORAGE_KEYS.videoTitle, currentVideoTitle);
+    
+    // Update UI
+    document.querySelectorAll('.video-title').forEach(el => {
+      el.textContent = title.length > 45 ? title.substring(0, 45) + '...' : title;
+    });
+    
+    // Restore saved data if same video
+    await restoreSavedData();
+  });
+}
+
+async function restoreSavedData() {
+  // Restore transcript
+  const savedTranscript = await getFromStorage(STORAGE_KEYS.transcript);
+  if (savedTranscript) {
+    currentTranscript = savedTranscript;
+  }
+  
+  // Restore notes
+  const savedNotes = await getFromStorage(STORAGE_KEYS.notes);
+  if (savedNotes) {
+    currentNotes = savedNotes;
+    renderNotes(currentNotes);
+    document.getElementById('downloadNotesBtn').style.display = 'flex';
+    updateStatus();
+  }
+  
+  // Restore chat history
+  const savedChat = await getFromStorage(STORAGE_KEYS.chatHistory);
+  if (savedChat && savedChat.length > 0) {
+    const container = document.getElementById('chatContainer');
+    container.innerHTML = '';
+    savedChat.forEach(msg => {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `chat-msg ${msg.role}`;
+      const label = msg.role === 'user' ? 'You' : 'AI';
+      msgDiv.innerHTML = `<div class="chat-label">${label}</div>${escapeHtml(msg.text)}`;
+      container.appendChild(msgDiv);
+    });
+    container.scrollTop = container.scrollHeight;
+  }
+  
+  // Restore questions
+  const savedQuestions = await getFromStorage(STORAGE_KEYS.questions);
+  if (savedQuestions) {
+    renderQuestions(savedQuestions);
+    const questionsStatus = document.getElementById('questionsStatus');
+    questionsStatus.innerHTML = '<span class="status-dot"></span> Ready to generate';
+    questionsStatus.className = 'status-badge ready';
+  }
+  
+  // Restore recommendations
+  const savedRecs = await getFromStorage(STORAGE_KEYS.recommendations);
+  if (savedRecs) {
+    renderRecommendations(savedRecs);
+    const learnStatus = document.getElementById('learnStatus');
+    learnStatus.innerHTML = '<span class="status-dot"></span> Recommendations ready';
+    learnStatus.className = 'status-badge ready';
+  }
+}
+
+// ========== TAB SWITCHING ==========
+
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -15,31 +150,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
   });
 });
 
-chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-  const tab = tabs[0];
-  if (!tab.url || !tab.url.includes('youtube.com/watch')) {
-    document.querySelectorAll('.video-title').forEach(el => {
-      el.textContent = 'Open a YouTube video';
-    });
-    return;
-  }
-  
-  const url = new URL(tab.url);
-  currentVideoId = url.searchParams.get('v');
-  
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: getVideoInfo
-  }, (results) => {
-    if (results && results[0] && results[0].result) {
-      const info = results[0].result;
-      currentVideoTitle = info.title;
-      document.querySelectorAll('.video-title').forEach(el => {
-        el.textContent = info.title.length > 45 ? info.title.substring(0, 45) + '...' : info.title;
-      });
-    }
-  });
-});
+// ========== UI HELPERS ==========
 
 function showLoading(containerId, text = 'Processing...', subtext = '') {
   document.getElementById(containerId).innerHTML = `
@@ -68,6 +179,7 @@ function updateStatus() {
 }
 
 // ========== NOTES ==========
+
 document.getElementById('generateNotesBtn').addEventListener('click', async () => {
   document.getElementById('downloadNotesBtn').style.display = 'none';
   
@@ -76,26 +188,42 @@ document.getElementById('generateNotesBtn').addEventListener('click', async () =
     return;
   }
   
-  if (!currentVideoId) return;
+  if (!currentVideoId) {
+    showError('notesResult', 'No video detected. Open a YouTube video first.');
+    return;
+  }
   
   const btn = document.getElementById('generateNotesBtn');
   btn.disabled = true;
-  showLoading('notesResult', 'Extracting transcript...', 'This may take a few seconds');
+  showLoading('notesResult', 'Extracting transcript...', 'Accessing YouTube captions');
   
   try {
-    const transcriptRes = await fetch(`${BACKEND_URL}/api/transcript/${currentVideoId}`);
-    const transcriptData = await transcriptRes.json();
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
-    if (transcriptData.success) {
-      currentTranscript = transcriptData.transcript;
-      generateNotesFromTranscript();
-      return;
+    const response = await new Promise((resolve, reject) => {
+      chrome.tabs.sendMessage(tab.id, { action: 'getTranscript' }, (res) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(res);
+        }
+      });
+    });
+    
+    if (!response) {
+      throw new Error('No response from content script');
     }
     
-    showManualTranscriptFallback(transcriptData.error || 'Auto-extraction unavailable');
+    if (response.success) {
+      currentTranscript = response.transcript;
+      await saveToStorage(STORAGE_KEYS.transcript, currentTranscript);
+      generateNotesFromTranscript();
+    } else {
+      showManualTranscriptFallback(response.error || 'Auto-extraction failed');
+    }
     
   } catch (err) {
-    showManualTranscriptFallback('Cannot connect to backend');
+    showManualTranscriptFallback(err.message || 'Cannot extract transcript. Make sure you are on a YouTube video page.');
   } finally {
     btn.disabled = false;
   }
@@ -122,13 +250,14 @@ function showManualTranscriptFallback(errorMsg) {
     </button>
   `;
   
-  document.getElementById('manualGenerateBtn').addEventListener('click', () => {
+  document.getElementById('manualGenerateBtn').addEventListener('click', async () => {
     const manualText = document.getElementById('manualTranscript').value.trim();
     if (!manualText) {
       alert('Please paste a transcript first!');
       return;
     }
     currentTranscript = manualText;
+    await saveToStorage(STORAGE_KEYS.transcript, currentTranscript);
     generateNotesFromTranscript();
   });
 }
@@ -155,6 +284,7 @@ async function generateNotesFromTranscript() {
     if (notesData.error) throw new Error(notesData.error);
     
     currentNotes = notesData.notes;
+    await saveToStorage(STORAGE_KEYS.notes, currentNotes);
     renderNotes(notesData.notes);
     updateStatus();
   } catch (err) {
@@ -198,6 +328,7 @@ function renderNotes(notes) {
 }
 
 // ========== DOWNLOAD PDF ==========
+
 document.getElementById('downloadNotesBtn').addEventListener('click', async () => {
   if (!currentNotes) return;
   
@@ -239,7 +370,10 @@ document.getElementById('downloadNotesBtn').addEventListener('click', async () =
   }
 });
 
-// ========== DOUBTS ==========
+// ========== DOUBTS (CHAT) ==========
+
+let chatHistory = [];
+
 document.getElementById('askBtn').addEventListener('click', async () => {
   const input = document.getElementById('doubtInput');
   const question = input.value.trim();
@@ -253,13 +387,17 @@ document.getElementById('askBtn').addEventListener('click', async () => {
   
   const greetings = ['hi', 'hello', 'hey', 'hii', 'heyy', 'yo'];
   if (greetings.includes(question.toLowerCase())) {
-    addChatMessage('ai', '👋 Hey there! I can answer questions about the video based on your generated notes. What would you like to know?');
+    const greetingMsg = '👋 Hey there! I can answer questions about the video based on your generated notes. What would you like to know?';
+    addChatMessage('user', question);
+    addChatMessage('ai', greetingMsg);
     input.value = '';
+    await saveChatHistory();
     return;
   }
   
   input.value = '';
   addChatMessage('user', question);
+  await saveChatHistory();
   
   const container = document.getElementById('chatContainer');
   const aiMsg = document.createElement('div');
@@ -283,6 +421,12 @@ document.getElementById('askBtn').addEventListener('click', async () => {
     if (data.error) throw new Error(data.error);
     
     aiMsg.innerHTML = `<div class="chat-label">AI</div>${escapeHtml(data.answer).replace(/\n/g, '<br>')}`;
+    
+    // Update chat history with AI response
+    const aiResponse = data.answer;
+    chatHistory.push({ role: 'ai', text: aiResponse });
+    await saveToStorage(STORAGE_KEYS.chatHistory, chatHistory);
+    
   } catch (err) {
     aiMsg.innerHTML = `<div class="chat-label">AI</div><span style="color:var(--error);">${escapeHtml(err.message)}</span>`;
   }
@@ -298,9 +442,17 @@ function addChatMessage(role, text) {
   msg.innerHTML = `<div class="chat-label">${label}</div>${escapeHtml(text)}`;
   container.appendChild(msg);
   container.scrollTop = container.scrollHeight;
+  
+  // Add to chat history
+  chatHistory.push({ role, text });
+}
+
+async function saveChatHistory() {
+  await saveToStorage(STORAGE_KEYS.chatHistory, chatHistory);
 }
 
 // ========== QUESTIONS ==========
+
 document.getElementById('generateQuestionsBtn').addEventListener('click', async () => {
   if (!currentNotes) {
     alert('Please generate notes first!');
@@ -324,6 +476,7 @@ document.getElementById('generateQuestionsBtn').addEventListener('click', async 
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     
+    await saveToStorage(STORAGE_KEYS.questions, data.questions);
     renderQuestions(data.questions);
   } catch (err) {
     showError('questionsResult', err.message);
@@ -408,9 +561,9 @@ document.getElementById('generateLearnBtn').addEventListener('click', async () =
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     
+    await saveToStorage(STORAGE_KEYS.recommendations, data.recommendations);
     renderRecommendations(data.recommendations);
     
-    // Update status
     const learnStatus = document.getElementById('learnStatus');
     learnStatus.innerHTML = '<span class="status-dot"></span> Recommendations ready';
     learnStatus.className = 'status-badge ready';
@@ -455,3 +608,7 @@ updateStatus = function() {
     learnStatus.className = 'status-badge ready';
   }
 };
+
+// ========== STARTUP ==========
+
+initPopup();

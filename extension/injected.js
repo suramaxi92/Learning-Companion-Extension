@@ -2,6 +2,12 @@
 (function() {
   'use strict';
   
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  
   // YouTube's caption fetching via their internal API
   async function fetchCaptions(videoId) {
     try {
@@ -45,7 +51,10 @@
         }
       });
       
-      return { success: true, transcript };
+      // Convert to plain text format for backend
+      const transcriptText = transcript.map(t => `[${formatTime(t.start)}] ${t.text}`).join('\n');
+      
+      return { success: true, transcript: transcriptText };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -53,6 +62,7 @@
   
   // Listen for messages from content script
   window.addEventListener('message', async (event) => {
+    if (event.source !== window) return;
     if (event.data.type === 'NOTETAKER_GET_TRANSCRIPT') {
       const videoId = new URLSearchParams(window.location.search).get('v');
       const result = await fetchCaptions(videoId);
