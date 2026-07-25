@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "YouTube NoteTaker",
   "version": "1.0.0",
-  "description": "Extract YouTube captions, generate notes, doubts & important questions with Gemini AI",
+  "description": "Extract YouTube captions, generate notes, doubts & important questions with AI",
   "permissions": [
     "activeTab",
     "tabs",
@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["injected.js"],
+      "resources": ["injected.js", "dashboard.html", "dashboard.js", "chart.js"],
       "matches": ["https://www.youtube.com/*"]
     }
   ]

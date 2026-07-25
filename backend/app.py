@@ -6,14 +6,17 @@ import time
 import requests
 import io
 import re
+import traceback
 from datetime import datetime
+from dotenv import load_dotenv
+from db import db
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app, origins=["chrome-extension://*"])
 
-# Hardcoded API key - REPLACE WITH YOUR ACTUAL GROQ KEY
-GROQ_API_KEY = "ENTER_YOUR_GROQ_KEY"
-
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', 'lol')
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 DEFAULT_MODEL = "llama-3.1-8b-instant"
 
@@ -22,18 +25,15 @@ MIN_DELAY = 1
 
 def call_groq(prompt, model=DEFAULT_MODEL):
     global last_request_time
-    
     elapsed = time.time() - last_request_time
     if elapsed < MIN_DELAY:
         time.sleep(MIN_DELAY - elapsed)
-    
     last_request_time = time.time()
     
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
-    
     payload = {
         "model": model,
         "messages": [
@@ -55,7 +55,6 @@ def call_groq(prompt, model=DEFAULT_MODEL):
             return {"success": False, "error": data["error"].get("message", str(data["error"]))}
         else:
             return {"success": False, "error": f"Unexpected response: {json.dumps(data)}"}
-            
     except requests.exceptions.HTTPError as e:
         if response.status_code == 401:
             return {"success": False, "error": "Invalid API key. Check your Groq key."}
@@ -65,20 +64,102 @@ def call_groq(prompt, model=DEFAULT_MODEL):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-# ============== PDF GENERATION ==============
+# ============== CLASSIFICATION ==============
+
+def classify_learning_video(video_title, transcript):
+    prompt = f"""Analyze this YouTube video and determine if it is EDUCATIONAL/LEARNING related.
+
+Video Title: {video_title}
+Transcript (first 2000 chars): {transcript[:2000]}
+
+IMPORTANT: Respond with ONLY a JSON object. No markdown, no explanation, just raw JSON:
+{{"is_learning_related": true, "confidence": 0.95, "reasoning": "brief reason"}}
+
+Rules:
+- TRUE if: tutorial, course, lesson, how-to, explanation, educational, academic, skill-building, coding, programming, language learning, science, math, history, etc.
+- FALSE if: music, vlog, entertainment, gaming, movie, comedy, sports, news commentary (unless educational), pure reaction videos
+- Be generous: coding tutorials, tech reviews with teaching, and explainers ARE learning-related."""
+
+    result = call_groq(prompt)
+    print(f"[CLASSIFY] Raw: {result}")
+    
+    if not result["success"]:
+        print(f"[CLASSIFY] API error: {result['error']}")
+        title_lower = video_title.lower()
+        learning_keywords = ['tutorial', 'course', 'learn', 'lesson', 'python', 'javascript', 'programming', 'coding', 'how to', 'beginner', 'introduction', 'explained']
+        is_likely = any(kw in title_lower for kw in learning_keywords)
+        return {"is_learning_related": is_likely, "confidence": 0.5, "error": result["error"]}
+    
+    try:
+        text = result["text"].strip()
+        if text.startswith('```json'): text = text[7:]
+        if text.startswith('```'): text = text[3:]
+        if text.endswith('```'): text = text[:-3]
+        text = text.strip()
+        
+        classification = json.loads(text)
+        is_learning = classification.get("is_learning_related", False)
+        if isinstance(is_learning, str):
+            is_learning = is_learning.lower() == "true"
+        confidence = float(classification.get("confidence", 0.5))
+        
+        print(f"[CLASSIFY] Result: learning={is_learning}, confidence={confidence}")
+        return {"is_learning_related": is_learning, "confidence": confidence, "reasoning": classification.get("reasoning", "")}
+    except Exception as e:
+        print(f"[CLASSIFY] Parse error: {e}")
+        title_lower = video_title.lower()
+        learning_keywords = ['tutorial', 'course', 'learn', 'lesson', 'python', 'javascript', 'programming', 'coding', 'how to', 'beginner', 'introduction', 'explained']
+        is_likely = any(kw in title_lower for kw in learning_keywords)
+        return {"is_learning_related": is_likely, "confidence": 0.5, "error": f"Parse failed: {str(e)}"}
+
+# ============== CONCEPT EXTRACTION ==============
+
+def extract_concepts_from_notes(notes, video_title):
+    print(f"[CONCEPTS] Extracting for: {video_title}")
+    
+    prompt = f"""Extract key concepts from these study notes as JSON.
+
+Video Title: {video_title}
+NOTES: {notes[:8000]}
+
+Return ONLY valid JSON array:
+[
+  {{"concept": "Neural Network", "category": "Machine Learning", "confidence": 0.95}},
+  {{"concept": "Backpropagation", "category": "Algorithms", "confidence": 0.92}}
+]"""
+
+    result = call_groq(prompt)
+    print(f"[CONCEPTS] Groq success={result['success']}")
+    
+    if not result["success"]:
+        return []
+    
+    try:
+        text = result["text"].strip()
+        if text.startswith('```json'): text = text[7:]
+        if text.startswith('```'): text = text[3:]
+        if text.endswith('```'): text = text[:-3]
+        text = text.strip()
+        
+        concepts = json.loads(text)
+        valid = []
+        for c in concepts:
+            if 'concept' in c and 'category' in c:
+                valid.append({
+                    "concept": str(c["concept"]).strip(),
+                    "category": str(c["category"]).strip(),
+                    "confidence": float(c.get("confidence", 0.8))
+                })
+        print(f"[CONCEPTS] Valid: {len(valid)}")
+        return valid
+    except Exception as e:
+        print(f"[CONCEPTS] Error: {e}")
+        return []
+
+# ============== PDF ==============
 
 def strip_emojis(text):
-    emoji_pattern = re.compile(
-        "["
-        "\U0001F600-\U0001F64F"
-        "\U0001F300-\U0001F5FF"
-        "\U0001F680-\U0001F6FF"
-        "\U0001F1E0-\U0001F1FF"
-        "\U00002702-\U000027B0"
-        "\U000024C2-\U0001F251"
-        "]+",
-        flags=re.UNICODE
-    )
+    emoji_pattern = re.compile("[" "\U0001F600-\U0001F64F" "\U0001F300-\U0001F5FF" "\U0001F680-\U0001F6FF" "\U0001F1E0-\U0001F1FF" "\U00002702-\U000027B0" "\U000024C2-\U0001F251" "]+", flags=re.UNICODE)
     return emoji_pattern.sub(r'', text)
 
 def generate_notes_pdf(notes_text, video_title='YouTube Video'):
@@ -97,7 +178,6 @@ def generate_notes_pdf(notes_text, video_title='YouTube Video'):
             self.set_line_width(0.5)
             self.line(15, self.get_y(), 195, self.get_y())
             self.ln(6)
-        
         def footer(self):
             self.set_y(-15)
             self.set_font('Helvetica', 'I', 8)
@@ -125,7 +205,6 @@ def generate_notes_pdf(notes_text, video_title='YouTube Video'):
         if not line:
             pdf.ln(2)
             continue
-        
         has_bold = '**' in line
         clean_line = line.replace('**', '')
         clean_line = strip_emojis(clean_line)
@@ -138,7 +217,6 @@ def generate_notes_pdf(notes_text, video_title='YouTube Video'):
             pdf.cell(0, 10, safe_line[2:], 0, 1, 'L')
             pdf.set_font('Helvetica', '', 11)
             pdf.set_text_color(40, 40, 40)
-            
         elif safe_line.startswith('## '):
             pdf.set_font('Helvetica', 'B', 13)
             pdf.set_text_color(80, 80, 80)
@@ -146,7 +224,6 @@ def generate_notes_pdf(notes_text, video_title='YouTube Video'):
             pdf.cell(0, 8, safe_line[3:], 0, 1, 'L')
             pdf.set_font('Helvetica', '', 11)
             pdf.set_text_color(40, 40, 40)
-            
         elif safe_line.startswith('- ') or safe_line.startswith('* '):
             text = safe_line[2:]
             pdf.set_x(20)
@@ -156,7 +233,6 @@ def generate_notes_pdf(notes_text, video_title='YouTube Video'):
                 pdf.set_font('Helvetica', 'B', 11)
             pdf.multi_cell(0, 6, text)
             pdf.set_font('Helvetica', '', 11)
-            
         else:
             if has_bold:
                 pdf.set_font('Helvetica', 'B', 11)
@@ -168,55 +244,147 @@ def generate_notes_pdf(notes_text, video_title='YouTube Video'):
         pdf_output = pdf_output.encode('latin-1')
     return io.BytesIO(pdf_output)
 
-# ============== TRANSCRIPT ==============
+# ============== ROUTES ==============
 
 @app.route('/api/transcript/<video_id>', methods=['GET'])
 def get_transcript(video_id):
-    return jsonify({
-        "error": "Auto-extraction not available. Please paste transcript manually."
-    }), 400
-
-# ============== NOTES ==============
+    return jsonify({"error": "Auto-extraction not available. Please paste transcript manually."}), 400
 
 @app.route('/api/generate-notes', methods=['POST'])
 def generate_notes():
     data = request.json
     transcript = data.get('transcript', '')
     video_title = data.get('video_title', 'YouTube Video')
+    video_id = data.get('video_id', '')
     
     if not transcript:
         return jsonify({"error": "No transcript provided"}), 400
     
-    prompt = f"""You are an expert educational note-taker. Create structured, comprehensive notes from the following YouTube video transcript.
+    try:
+        print(f"[NOTES] Starting for video: {video_id}")
+        
+        # Save video
+        video_url = f"https://youtube.com/watch?v={video_id}" if video_id else ''
+        db.save_video(video_id, video_title, video_url, transcript, None)
+        print("[NOTES] Video saved")
+        
+        # Classify
+        classification = classify_learning_video(video_title, transcript)
+        is_learning = classification.get("is_learning_related", False)
+        confidence = classification.get("confidence", 0)
+        db.update_video_learning_status(video_id, is_learning, confidence)
+        print(f"[NOTES] Classified: learning={is_learning}, confidence={confidence}")
+        
+        # Generate notes with concepts in ONE call
+        prompt = f"""Analyze this video transcript and produce structured study notes plus concept extraction.
 
-Video Title: {video_title}
-
+VIDEO TITLE: {video_title}
 TRANSCRIPT:
 {transcript[:15000]}
 
-INSTRUCTIONS:
-1. Create well-structured notes with clear headings and subheadings
-2. Use bullet points for key concepts
-3. Include relevant timestamps in [MM:SS] format where important concepts are discussed
-4. Highlight key terms and definitions using **bold**
-5. Organize by topics/themes, not just chronologically
-6. Include a brief summary at the end
-7. Keep it concise but comprehensive
+You must respond with ONLY a JSON object. No markdown code blocks, no extra text before or after.
 
-FORMAT:
-# Main Topic
-## Subtopic
-- Key point with **important terms**
-- Another point [timestamp]
+The JSON must have exactly this structure:
+{{
+  "notes": "string with formatted notes",
+  "concepts": [
+    {{"concept": "string", "category": "string", "confidence": number}}
+  ]
+}}
 
-Return only the formatted notes, no extra commentary."""
+NOTES FORMATTING RULES:
+- Use # for main headings
+- Use ## for subheadings  
+- Use - for bullet points
+- Wrap important terms in **bold**
+- Include timestamps like [MM:SS] where relevant
+- End with a brief summary
 
-    result = call_groq(prompt)
-    if result["success"]:
-        return jsonify({"success": True, "notes": result["text"]})
-    return jsonify({"error": result["error"]}), 500
+CONCEPTS RULES:
+- Extract 3 to 10 core concepts from the content
+- Each concept name should be 1-4 words
+- Category examples: Programming, Mathematics, Science, Algorithms, Data Structures, Web Development, Machine Learning, Databases, Security, General
+- Confidence is a decimal between 0.0 and 1.0
 
-# ============== DOUBTS ==============
+EXAMPLE RESPONSE:
+{{
+  "notes": "# Introduction to Python\\n\\n## Variables\\n- Variables store data using **assignment** [01:23]\\n- Use descriptive names for readability\\n\\n## Functions\\n- Functions encapsulate reusable logic [03:45]\\n- Use **def** keyword to define\\n\\n## Summary\\nPython basics covered variables and functions.",
+  "concepts": [
+    {{"concept": "Variables", "category": "Programming", "confidence": 0.95}},
+    {{"concept": "Functions", "category": "Programming", "confidence": 0.92}},
+    {{"concept": "Assignment", "category": "Programming", "confidence": 0.88}}
+  ]
+}}
+
+Now generate the JSON for this video:"""
+
+        result = call_groq(prompt)
+        if not result["success"]:
+            return jsonify({"error": result["error"]}), 500
+        
+        raw_text = result["text"].strip()
+        print(f"[NOTES] Raw response (first 300 chars): {raw_text[:300]}")
+        
+        # Clean up the response
+        text = raw_text
+        if text.startswith('```json'):
+            text = text[7:]
+        elif text.startswith('```'):
+            text = text[3:]
+        if text.endswith('```'):
+            text = text[:-3]
+        text = text.strip()
+        
+        # Try to find JSON if there's extra text
+        try:
+            # Find the first { and last }
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                text = text[start:end+1]
+            
+            parsed = json.loads(text)
+            notes = parsed["notes"]
+            concepts = parsed.get("concepts", [])
+            print(f"[NOTES] Parsed OK: notes={len(notes)} chars, concepts={len(concepts)}")
+            
+        except Exception as e:
+            print(f"[NOTES] JSON parse failed: {e}")
+            print(f"[NOTES] Full raw text: {raw_text[:800]}")
+            # Fallback: use raw text as notes, no concepts
+            notes = raw_text
+            concepts = []
+        
+        # Save notes
+        db.save_video(video_id, video_title, video_url, transcript, notes)
+        print("[NOTES] Notes saved")
+        
+        # Save concepts if learning
+        concepts_saved = []
+        if is_learning and concepts:
+            print(f"[NOTES] Saving {len(concepts)} concepts...")
+            for c in concepts:
+                concept_name = str(c.get("concept", "")).strip()
+                category = str(c.get("category", "General")).strip()
+                conf = float(c.get("confidence", 0.8))
+                if concept_name:
+                    db.save_concept(concept_name, category, video_id, conf)
+                    concepts_saved.append({"concept": concept_name, "category": category, "confidence": conf})
+            print(f"[NOTES] Saved {len(concepts_saved)} concepts")
+        
+        return jsonify({
+            "success": True,
+            "notes": notes,
+            "is_learning_related": is_learning,
+            "confidence": confidence,
+            "concepts_extracted": len(concepts_saved),
+            "concepts": concepts_saved
+        })
+        
+    except Exception as e:
+        print(f"[NOTES] CRASH: {str(e)}")
+        print(f"[NOTES] TRACEBACK: {traceback.format_exc()}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 @app.route('/api/ask-doubt', methods=['POST'])
 def ask_doubt():
@@ -228,31 +396,18 @@ def ask_doubt():
     if not question:
         return jsonify({"error": "No question provided"}), 400
     
-    prompt = f"""You are an expert tutor. Answer the student's question based on the video notes and transcript provided.
+    prompt = f"""Answer based ONLY on these notes and transcript.
 
-VIDEO NOTES:
-{notes[:8000]}
+VIDEO NOTES: {notes[:8000]}
+TRANSCRIPT: {transcript[:4000]}
+QUESTION: {question}
 
-VIDEO TRANSCRIPT (for reference):
-{transcript[:4000]}
-
-STUDENT QUESTION: {question}
-
-INSTRUCTIONS:
-1. Answer based ONLY on the provided notes and transcript
-2. If the answer isn't in the notes, say so clearly
-3. Be clear, concise, and educational
-4. Use examples from the video where relevant
-5. If appropriate, reference specific timestamps
-
-Provide a helpful, accurate answer."""
+Be clear, concise, educational. If answer isn't in notes, say so."""
 
     result = call_groq(prompt)
     if result["success"]:
         return jsonify({"success": True, "answer": result["text"]})
     return jsonify({"error": result["error"]}), 500
-
-# ============== QUESTIONS ==============
 
 @app.route('/api/generate-questions', methods=['POST'])
 def generate_questions():
@@ -263,37 +418,22 @@ def generate_questions():
     if not notes:
         return jsonify({"error": "No notes provided"}), 400
     
-    prompt = f"""You are an exam question generator. Create exam-style multiple choice questions based on the following video notes.
+    prompt = f"""Create 5 exam-style MCQs based on these notes.
 
-VIDEO NOTES:
-{notes[:12000]}
+VIDEO NOTES: {notes[:12000]}
 
-INSTRUCTIONS:
-1. Generate 5 exam-style multiple choice questions
-2. Each question should test understanding of key concepts
-3. Provide 4 options (A, B, C, D) for each question
-4. Only ONE option should be correct
-5. Questions should vary in difficulty (2 easy, 2 medium, 1 hard)
-6. Make sure questions are based ONLY on the notes content
+Rules: 4 options each, 1 correct, vary difficulty (2 easy, 2 medium, 1 hard).
 
-IMPORTANT: Return ONLY a valid JSON array in this exact format:
+Return ONLY valid JSON array:
 [
-  {{
-    "question": "What is the main concept discussed?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct_index": 1,
-    "explanation": "Brief explanation of why B is correct"
-  }}
-]
-
-Do not include markdown formatting, just raw JSON."""
+  {{"question": "...", "options": ["A", "B", "C", "D"], "correct_index": 1, "explanation": "..."}}
+]"""
 
     result = call_groq(prompt)
     if not result["success"]:
         return jsonify({"error": result["error"]}), 500
     
     text = result["text"].strip()
-    
     if text.startswith('```json'): text = text[7:]
     if text.startswith('```'): text = text[3:]
     if text.endswith('```'): text = text[:-3]
@@ -308,9 +448,7 @@ Do not include markdown formatting, just raw JSON."""
             assert 0 <= q['correct_index'] <= 3
         return jsonify({"success": True, "questions": questions})
     except Exception as e:
-        return jsonify({"error": f"Failed to parse questions: {str(e)}"}), 500
-
-# ============== LEARN NEXT ==============
+        return jsonify({"error": f"Failed to parse: {str(e)}"}), 500
 
 @app.route('/api/learn-next', methods=['POST'])
 def learn_next():
@@ -321,59 +459,38 @@ def learn_next():
     if not notes:
         return jsonify({"error": "No notes provided"}), 400
     
-    prompt = f"""You are an expert learning path curator. Based on the following video notes, suggest what the student should learn next.
+    prompt = f"""Suggest 5 related topics to learn next.
 
 VIDEO TITLE: {video_title}
+NOTES: {notes[:10000]}
 
-VIDEO NOTES:
-{notes[:10000]}
-
-INSTRUCTIONS:
-1. Suggest exactly 5 related topics the student should learn next
-2. Each topic should build naturally on what they just learned
-3. Order them from most foundational to most advanced
-4. For each topic, provide:
-   - A clear, concise topic name (3-5 words)
-   - A 1-sentence description of why it matters
-   - A difficulty level: Beginner, Intermediate, or Advanced
-   - A relevant emoji
-
-IMPORTANT: Return ONLY a valid JSON array in this exact format:
+Return ONLY valid JSON array:
 [
-  {{
-    "topic": "Object-Oriented Programming",
-    "description": "Learn to organize code using classes and objects for better reusability",
-    "difficulty": "Intermediate",
-    "emoji": "🐍"
-  }}
+  {{"topic": "Object-Oriented Programming", "description": "...", "difficulty": "Intermediate", "emoji": "🐍"}}
 ]
 
-Do not include markdown formatting, just raw JSON."""
+Difficulty must be: Beginner, Intermediate, or Advanced."""
 
     result = call_groq(prompt)
     if not result["success"]:
         return jsonify({"error": result["error"]}), 500
     
     text = result["text"].strip()
-    
     if text.startswith('```json'): text = text[7:]
     if text.startswith('```'): text = text[3:]
     if text.endswith('```'): text = text[:-3]
     text = text.strip()
     
     try:
-        recommendations = json.loads(text)
-        for rec in recommendations:
-            assert 'topic' in rec
-            assert 'description' in rec
-            assert 'difficulty' in rec
-            assert rec['difficulty'] in ['Beginner', 'Intermediate', 'Advanced']
-            assert 'emoji' in rec
-        return jsonify({"success": True, "recommendations": recommendations})
+        recs = json.loads(text)
+        for r in recs:
+            assert 'topic' in r
+            assert 'description' in r
+            assert r['difficulty'] in ['Beginner', 'Intermediate', 'Advanced']
+            assert 'emoji' in r
+        return jsonify({"success": True, "recommendations": recs})
     except Exception as e:
-        return jsonify({"error": f"Failed to parse recommendations: {str(e)}"}), 500
-
-# ============== DOWNLOAD PDF ==============
+        return jsonify({"error": f"Failed to parse: {str(e)}"}), 500
 
 @app.route('/api/download-notes', methods=['POST'])
 def download_notes():
@@ -387,24 +504,126 @@ def download_notes():
     try:
         pdf_buffer = generate_notes_pdf(notes, video_title)
         pdf_buffer.seek(0)
-        
-        safe_filename = video_title.replace(' ', '_')[:30]
-        safe_filename = re.sub(r'[^a-zA-Z0-9_-]', '', safe_filename)
-        
-        return send_file(
-            pdf_buffer,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=f'notes-{safe_filename}.pdf'
-        )
+        safe_filename = re.sub(r'[^a-zA-Z0-9_-]', '', video_title.replace(' ', '_')[:30])
+        return send_file(pdf_buffer, mimetype='application/pdf', as_attachment=True, download_name=f'notes-{safe_filename}.pdf')
     except Exception as e:
-        return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
+        return jsonify({"error": f"PDF failed: {str(e)}"}), 500
 
-# ============== HEALTH CHECK ==============
+# ============== DASHBOARD APIs ==============
+
+@app.route('/api/stats/today', methods=['GET'])
+def get_today_stats():
+    stats = db.get_today_stats()
+    return jsonify({"success": True, "stats": stats or {"total_videos": 0, "learning_count": 0, "non_learning_count": 0}})
+
+@app.route('/api/stats/overall', methods=['GET'])
+def get_overall_stats():
+    stats = db.get_overall_stats()
+    return jsonify({"success": True, "stats": stats or {"total_videos": 0, "learning_count": 0, "non_learning_count": 0}})
+
+@app.route('/api/videos/today-learning', methods=['GET'])
+def get_today_learning_videos():
+    videos = db.get_today_learning_videos()
+    return jsonify({"success": True, "videos": videos or []})
+
+@app.route('/api/concepts', methods=['GET'])
+def get_all_concepts():
+    concepts = db.get_all_concepts()
+    return jsonify({"success": True, "concepts": concepts or []})
+
+@app.route('/api/concepts/by-video/<video_id>', methods=['GET'])
+def get_concepts_by_video(video_id):
+    concepts = db.get_concepts_by_video(video_id)
+    return jsonify({"success": True, "concepts": concepts or []})
+
+# ============== RECOMMENDATIONS ==============
+
+@app.route('/api/recommendations', methods=['POST'])
+def get_recommendations():
+    data = request.json
+    concepts = data.get('concepts', [])
+    
+    if not concepts or len(concepts) == 0:
+        return jsonify({"error": "No concepts provided"}), 400
+    
+    # Group concepts by category
+    categories = {}
+    for c in concepts:
+        cat = c.get('category', 'General')
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append(c.get('concept_name', c.get('concept', '')))
+    
+    all_recommendations = []
+    
+    for category, concept_list in categories.items():
+        prompt = f"""Based on these learned concepts in {category}, suggest 2-3 related topics to learn next.
+
+Learned concepts: {', '.join(concept_list)}
+
+Return ONLY a valid JSON array. No markdown, no explanation, just raw JSON:
+[
+  {{"topic": "Topic Name", "description": "Brief description of what this topic covers and why it builds on what was learned.", "difficulty": "Beginner|Intermediate|Advanced", "emoji": "🔥"}}
+]
+
+Rules:
+- Each topic should naturally extend or deepen understanding of the learned concepts
+- Difficulty must be exactly: Beginner, Intermediate, or Advanced
+- Use relevant emojis
+- Description should be 1-2 sentences
+- Suggest topics that are commonly taught AFTER the learned concepts in a curriculum"""
+        
+        result = call_groq(prompt)
+        if not result["success"]:
+            continue
+        
+        try:
+            text = result["text"].strip()
+            if text.startswith('```json'): text = text[7:]
+            if text.startswith('```'): text = text[3:]
+            if text.endswith('```'): text = text[:-3]
+            text = text.strip()
+            
+            recs = json.loads(text)
+            for r in recs:
+                assert 'topic' in r
+                assert 'description' in r
+                assert r['difficulty'] in ['Beginner', 'Intermediate', 'Advanced']
+                assert 'emoji' in r
+                r['category'] = category
+                all_recommendations.append(r)
+        except Exception as e:
+            print(f"[RECOMMENDATIONS] Parse error for {category}: {e}")
+            continue
+    
+    return jsonify({"success": True, "recommendations": all_recommendations})
+
+# ============== HEALTH & INIT ==============
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({"status": "ok", "provider": "groq", "model": DEFAULT_MODEL})
+    return jsonify({"status": "ok", "provider": "groq", "model": DEFAULT_MODEL, "database": "mysql"})
+
+@app.route('/api/init-db', methods=['POST'])
+def init_database():
+    try:
+        db.init_tables()
+        return jsonify({"success": True, "message": "Database initialized"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ============== DASHBOARD ==============
+
+from flask import send_from_directory
+
+@app.route('/dashboard')
+def dashboard():
+    return send_from_directory('.', 'dashboard.html')
 
 if __name__ == '__main__':
+    try:
+        db.init_tables()
+        print("✅ Database tables initialized")
+    except Exception as e:
+        print(f"⚠️ Database init warning: {e}")
     app.run(debug=True, host='0.0.0.0', port=5000)

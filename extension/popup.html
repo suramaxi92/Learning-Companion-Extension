@@ -72,6 +72,27 @@
       opacity: 0.85;
       margin-top: 4px;
       font-weight: 500;
+      position: relative;
+      z-index: 1;
+    }
+    .btn-dashboard {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: white;
+      padding: 8px 20px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      backdrop-filter: blur(10px);
+      margin-top: 12px;
+      position: relative;
+      z-index: 1;
+    }
+    .btn-dashboard:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
     }
     
     .nav {
@@ -677,6 +698,9 @@
   <div class="header">
     <div class="header-title">🎬 YouTube NoteTaker</div>
     <div class="header-subtitle">AI-Powered Study Assistant</div>
+    <button class="btn-dashboard" id="openDashboard">
+      <span>📊</span> Dashboard
+    </button>
   </div>
   
   <div class="nav">

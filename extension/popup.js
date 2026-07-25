@@ -4,8 +4,8 @@ let currentVideoId = null;
 let currentVideoTitle = '';
 let currentTranscript = '';
 let currentNotes = '';
+let isLearningVideo = false;
 
-// Storage keys
 const STORAGE_KEYS = {
   videoId: 'notetaker_videoId',
   videoTitle: 'notetaker_videoTitle',
@@ -13,8 +13,11 @@ const STORAGE_KEYS = {
   notes: 'notetaker_notes',
   chatHistory: 'notetaker_chatHistory',
   questions: 'notetaker_questions',
-  recommendations: 'notetaker_recommendations'
+  recommendations: 'notetaker_recommendations',
+  isLearning: 'notetaker_isLearning'
 };
+
+const SHORTS_STORAGE_KEY = 'notetaker_shortsCount';
 
 // ========== STORAGE HELPERS ==========
 
@@ -35,8 +38,55 @@ async function clearVideoData() {
     STORAGE_KEYS.notes,
     STORAGE_KEYS.chatHistory,
     STORAGE_KEYS.questions,
-    STORAGE_KEYS.recommendations
+    STORAGE_KEYS.recommendations,
+    STORAGE_KEYS.isLearning
   ]);
+}
+
+// ========== SHORTS TRACKING ==========
+
+async function incrementShortsCount() {
+  const today = new Date().toISOString().split('T')[0];
+  const key = `${SHORTS_STORAGE_KEY}_${today}`;
+  const result = await chrome.storage.local.get(key);
+  const current = result[key] || 0;
+  await chrome.storage.local.set({ [key]: current + 1 });
+  return current + 1;
+}
+
+async function getShortsStats() {
+  const today = new Date().toISOString().split('T')[0];
+  const todayKey = `${SHORTS_STORAGE_KEY}_${today}`;
+  const allData = await chrome.storage.local.get(null);
+  let todayCount = 0;
+  let totalCount = 0;
+  
+  for (const [key, value] of Object.entries(allData)) {
+    if (key.startsWith(SHORTS_STORAGE_KEY)) {
+      totalCount += value;
+      if (key === todayKey) todayCount = value;
+    }
+  }
+  return { today: todayCount, total: totalCount };
+}
+
+async function clearOldShorts(daysToKeep = 30) {
+  const allData = await chrome.storage.local.get(null);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - daysToKeep);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  const toRemove = [];
+  
+  for (const key of Object.keys(allData)) {
+    if (key.startsWith(SHORTS_STORAGE_KEY)) {
+      const dateStr = key.replace(`${SHORTS_STORAGE_KEY}_`, '');
+      if (dateStr < cutoffStr) toRemove.push(key);
+    }
+  }
+  
+  if (toRemove.length > 0) {
+    await chrome.storage.local.remove(toRemove);
+  }
 }
 
 // ========== INIT: RESTORE DATA ON OPEN ==========
@@ -44,6 +94,46 @@ async function clearVideoData() {
 async function initPopup() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
+  // Handle YouTube Shorts
+  if (tab.url && tab.url.includes('youtube.com/shorts/')) {
+    currentVideoId = tab.url.split('/shorts/')[1]?.split('?')[0] || 'shorts';
+    currentVideoTitle = 'YouTube Shorts';
+    
+    const count = await incrementShortsCount();
+    const stats = await getShortsStats();
+    
+    document.querySelectorAll('.video-title').forEach(el => {
+      el.textContent = '📱 YouTube Shorts';
+    });
+    
+    document.getElementById('notesResult').innerHTML = `
+      <div class="hint-box" style="background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.3);">
+        <div class="hint-title" style="color: var(--warning);">⚠️ YouTube Shorts Detected</div>
+        <div class="hint-steps" style="font-size: 13px; line-height: 1.8;">
+          <div style="margin-bottom: 8px;">This is a Shorts video. Shorts are typically not educational.</div>
+          <div style="display: flex; gap: 16px; margin-top: 12px;">
+            <div style="text-align: center;">
+              <div style="font-size: 24px; font-weight: 700; color: var(--warning);">${stats.today}</div>
+              <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Today</div>
+            </div>
+            <div style="width: 1px; background: var(--border);"></div>
+            <div style="text-align: center;">
+              <div style="font-size: 24px; font-weight: 700; color: var(--text-secondary);">${stats.total}</div>
+              <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Total</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.getElementById('generateNotesBtn').style.display = 'none';
+    document.getElementById('downloadNotesBtn').style.display = 'none';
+    
+    await clearOldShorts();
+    return;
+  }
+  
+  // Regular video handling
   if (!tab.url || !tab.url.includes('youtube.com/watch')) {
     document.querySelectorAll('.video-title').forEach(el => {
       el.textContent = 'Open a YouTube video';
@@ -52,17 +142,15 @@ async function initPopup() {
   }
   
   const url = new URL(tab.url);
-  const newVideoId = url.searchParams.get('v');
+  currentVideoId = url.searchParams.get('v');
   
-  // Check if this is a different video from what we stored
   const storedVideoId = await getFromStorage(STORAGE_KEYS.videoId);
   
-  if (storedVideoId && storedVideoId !== newVideoId) {
-    // New video - clear old data
+  if (storedVideoId && storedVideoId !== currentVideoId) {
     await clearVideoData();
+    chatHistory = [];
   }
   
-  // Get video title
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: getVideoInfo
@@ -72,31 +160,24 @@ async function initPopup() {
       title = results[0].result.title;
     }
     
-    currentVideoId = newVideoId;
+    currentVideoId = currentVideoId;
     currentVideoTitle = title;
     
-    // Save current video info
     await saveToStorage(STORAGE_KEYS.videoId, currentVideoId);
     await saveToStorage(STORAGE_KEYS.videoTitle, currentVideoTitle);
     
-    // Update UI
     document.querySelectorAll('.video-title').forEach(el => {
       el.textContent = title.length > 45 ? title.substring(0, 45) + '...' : title;
     });
     
-    // Restore saved data if same video
     await restoreSavedData();
   });
 }
 
 async function restoreSavedData() {
-  // Restore transcript
   const savedTranscript = await getFromStorage(STORAGE_KEYS.transcript);
-  if (savedTranscript) {
-    currentTranscript = savedTranscript;
-  }
+  if (savedTranscript) currentTranscript = savedTranscript;
   
-  // Restore notes
   const savedNotes = await getFromStorage(STORAGE_KEYS.notes);
   if (savedNotes) {
     currentNotes = savedNotes;
@@ -105,9 +186,12 @@ async function restoreSavedData() {
     updateStatus();
   }
   
-  // Restore chat history
+  const savedIsLearning = await getFromStorage(STORAGE_KEYS.isLearning);
+  if (savedIsLearning !== undefined) isLearningVideo = savedIsLearning;
+  
   const savedChat = await getFromStorage(STORAGE_KEYS.chatHistory);
   if (savedChat && savedChat.length > 0) {
+    chatHistory = savedChat;
     const container = document.getElementById('chatContainer');
     container.innerHTML = '';
     savedChat.forEach(msg => {
@@ -120,7 +204,6 @@ async function restoreSavedData() {
     container.scrollTop = container.scrollHeight;
   }
   
-  // Restore questions
   const savedQuestions = await getFromStorage(STORAGE_KEYS.questions);
   if (savedQuestions) {
     renderQuestions(savedQuestions);
@@ -129,7 +212,6 @@ async function restoreSavedData() {
     questionsStatus.className = 'status-badge ready';
   }
   
-  // Restore recommendations
   const savedRecs = await getFromStorage(STORAGE_KEYS.recommendations);
   if (savedRecs) {
     renderRecommendations(savedRecs);
@@ -210,9 +292,7 @@ document.getElementById('generateNotesBtn').addEventListener('click', async () =
       });
     });
     
-    if (!response) {
-      throw new Error('No response from content script');
-    }
+    if (!response) throw new Error('No response from content script');
     
     if (response.success) {
       currentTranscript = response.transcript;
@@ -268,7 +348,7 @@ async function generateNotesFromTranscript() {
   const btn = document.getElementById('generateNotesBtn');
   btn.disabled = true;
   document.getElementById('downloadNotesBtn').style.display = 'none';
-  showLoading('notesResult', 'Generating notes...', 'AI is analyzing the content');
+  showLoading('notesResult', 'Analyzing video...', 'Classifying content & generating notes');
   
   try {
     const notesRes = await fetch(`${BACKEND_URL}/api/generate-notes`, {
@@ -276,7 +356,8 @@ async function generateNotesFromTranscript() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         transcript: currentTranscript,
-        video_title: currentVideoTitle 
+        video_title: currentVideoTitle,
+        video_id: currentVideoId
       })
     });
     
@@ -284,8 +365,27 @@ async function generateNotesFromTranscript() {
     if (notesData.error) throw new Error(notesData.error);
     
     currentNotes = notesData.notes;
+    isLearningVideo = notesData.is_learning_related;
+    
     await saveToStorage(STORAGE_KEYS.notes, currentNotes);
+    await saveToStorage(STORAGE_KEYS.isLearning, isLearningVideo);
+    
+    let learningBadge = '';
+    if (isLearningVideo) {
+      learningBadge = `<div style="background: var(--success-bg); color: var(--success); padding: 8px 14px; border-radius: 8px; font-size: 11px; font-weight: 600; margin-bottom: 12px; display: inline-flex; align-items: center; gap: 6px;">
+        <span>🎓</span> Learning Video • ${notesData.concepts_extracted || 0} concepts extracted
+      </div>`;
+    } else {
+      learningBadge = `<div style="background: var(--warning-bg); color: var(--warning); padding: 8px 14px; border-radius: 8px; font-size: 11px; font-weight: 600; margin-bottom: 12px; display: inline-flex; align-items: center; gap: 6px;">
+        <span>📺</span> Non-Learning Video
+      </div>`;
+    }
+    
     renderNotes(notesData.notes);
+    
+    const notesResult = document.getElementById('notesResult');
+    notesResult.insertAdjacentHTML('afterbegin', learningBadge);
+    
     updateStatus();
   } catch (err) {
     showError('notesResult', err.message);
@@ -422,7 +522,6 @@ document.getElementById('askBtn').addEventListener('click', async () => {
     
     aiMsg.innerHTML = `<div class="chat-label">AI</div>${escapeHtml(data.answer).replace(/\n/g, '<br>')}`;
     
-    // Update chat history with AI response
     const aiResponse = data.answer;
     chatHistory.push({ role: 'ai', text: aiResponse });
     await saveToStorage(STORAGE_KEYS.chatHistory, chatHistory);
@@ -442,8 +541,6 @@ function addChatMessage(role, text) {
   msg.innerHTML = `<div class="chat-label">${label}</div>${escapeHtml(text)}`;
   container.appendChild(msg);
   container.scrollTop = container.scrollHeight;
-  
-  // Add to chat history
   chatHistory.push({ role, text });
 }
 
@@ -598,7 +695,6 @@ function renderRecommendations(recommendations) {
   document.getElementById('learnResult').innerHTML = html;
 }
 
-// Update learn status when notes are generated
 const originalUpdateStatus = updateStatus;
 updateStatus = function() {
   originalUpdateStatus();
@@ -608,6 +704,14 @@ updateStatus = function() {
     learnStatus.className = 'status-badge ready';
   }
 };
+
+// ========== DASHBOARD BUTTON ==========
+
+document.getElementById('openDashboard')?.addEventListener('click', () => {
+  const dashboardUrl = chrome.runtime.getURL('dashboard.html');
+  console.log('[Popup] Opening dashboard:', dashboardUrl);
+  chrome.tabs.create({ url: dashboardUrl });
+});
 
 // ========== STARTUP ==========
 
