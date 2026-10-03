@@ -47,7 +47,7 @@ cp .env.example .env
 python app.py        # Runs on localhost:5000
 
 # 4. Load extension
-# Chrome → Extensions → Developer Mode → Load Unpacked → Select project folder
+Chrome → Extensions → Developer Mode → Load Unpacked → Select project folder
 ```
 
 ---
